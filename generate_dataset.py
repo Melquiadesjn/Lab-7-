@@ -52,23 +52,28 @@ def generate_pair(topic: str) -> dict | None:
         f"Crie uma pergunta técnica sobre '{topic}' em {DOMAIN} "
         "e sua resposta completa com exemplo de código Python."
     )
-    try:
-        resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT.format(domain=DOMAIN)},
-                {"role": "user", "content": user_msg},
-            ],
-            temperature=0.8,
-            max_tokens=600,
-        )
-        raw = resp.choices[0].message.content.strip()
-        pair = json.loads(raw)
-        # Valida estrutura mínima
-        if "prompt" in pair and "response" in pair:
-            return pair
-    except (json.JSONDecodeError, KeyError) as e:
-        print(f"  [aviso] falha ao parsear resposta: {e}")
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT.format(domain=DOMAIN)},
+                    {"role": "user", "content": user_msg},
+                ],
+                temperature=0.8,
+                max_tokens=600,
+            )
+            raw = resp.choices[0].message.content.strip()
+            pair = json.loads(raw)
+            # Valida estrutura mínima
+            if "prompt" in pair and "response" in pair:
+                return pair
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"  [aviso] tentativa {attempt}/{max_retries} falhou: {e}")
+        except Exception as e:
+            print(f"  [erro API] tentativa {attempt}/{max_retries}: {e}")
+            break   # erros de rede/auth não se resolvem com retry
     return None
 
 
