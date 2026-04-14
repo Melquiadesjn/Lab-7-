@@ -9,6 +9,7 @@ Passos cobertos:
 """
 
 import os
+import yaml
 import torch
 from datasets import load_dataset
 from transformers import (
@@ -20,17 +21,25 @@ from transformers import (
 from peft import LoraConfig, TaskType
 from trl import SFTTrainer
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Configurações globais
-# ──────────────────────────────────────────────────────────────────────────────
-MODEL_ID = "meta-llama/Llama-2-7b-hf"   # requer aceite dos termos na HuggingFace
-OUTPUT_DIR = "./outputs/llama2-qlora-data-science"
-ADAPTER_DIR = "./outputs/adapter"
 
-TRAIN_FILE = "data/train.jsonl"
-TEST_FILE = "data/test.jsonl"
+def load_config(path: str = "config.yaml") -> dict:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
 
-MAX_SEQ_LENGTH = 512
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Configurações globais (lidas do config.yaml)
+# ──────────────────────────────────────────────────────────────────────────────
+CFG = load_config()
+
+MODEL_ID   = CFG["model"]["id"]
+OUTPUT_DIR = CFG["paths"]["output_dir"]
+ADAPTER_DIR = CFG["paths"]["adapter_dir"]
+
+TRAIN_FILE = CFG["paths"]["train_file"]
+TEST_FILE = CFG["paths"]["test_file"]
+
+MAX_SEQ_LENGTH = CFG["model"]["max_seq_length"]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -44,10 +53,10 @@ def build_bnb_config() -> BitsAndBytesConfig:
     em ~4x comparado ao fp16 puro.
     """
     return BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",           # NormalFloat 4-bit
+        load_in_4bit=CFG["quantization"]["load_in_4bit"],
+        bnb_4bit_quant_type=CFG["quantization"]["quant_type"],
         bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_use_double_quant=True,      # quantização aninhada extra
+        bnb_4bit_use_double_quant=CFG["quantization"]["double_quant"],
     )
 
 
@@ -67,16 +76,11 @@ def build_lora_config() -> LoraConfig:
     """
     return LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=64,
-        lora_alpha=16,
-        lora_dropout=0.1,
-        bias="none",
-        target_modules=[          # camadas de atenção do Llama
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "o_proj",
-        ],
+        r=CFG["lora"]["r"],
+        lora_alpha=CFG["lora"]["alpha"],
+        lora_dropout=CFG["lora"]["dropout"],
+        bias=CFG["lora"]["bias"],
+        target_modules=CFG["lora"]["target_modules"],
     )
 
 
@@ -97,20 +101,20 @@ def build_training_args() -> TrainingArguments:
     """
     return TrainingArguments(
         output_dir=OUTPUT_DIR,
-        num_train_epochs=3,
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=4,        # batch efetivo = 16
-        optim="paged_adamw_32bit",
-        learning_rate=2e-4,
-        lr_scheduler_type="cosine",
-        warmup_ratio=0.03,
-        logging_steps=10,
-        save_strategy="epoch",
-        evaluation_strategy="epoch",
-        fp16=True,
+        num_train_epochs=CFG["training"]["epochs"],
+        per_device_train_batch_size=CFG["training"]["batch_size"],
+        gradient_accumulation_steps=CFG["training"]["gradient_accumulation_steps"],
+        optim=CFG["training"]["optimizer"],
+        learning_rate=CFG["training"]["learning_rate"],
+        lr_scheduler_type=CFG["training"]["lr_scheduler"],
+        warmup_ratio=CFG["training"]["warmup_ratio"],
+        logging_steps=CFG["training"]["logging_steps"],
+        save_strategy=CFG["training"]["save_strategy"],
+        evaluation_strategy=CFG["training"]["save_strategy"],
+        fp16=CFG["training"]["fp16"],
         bf16=False,
-        max_grad_norm=0.3,
-        group_by_length=True,
+        max_grad_norm=CFG["training"]["max_grad_norm"],
+        group_by_length=CFG["training"]["group_by_length"],
         report_to="none",                     # desativa W&B por padrão
     )
 
