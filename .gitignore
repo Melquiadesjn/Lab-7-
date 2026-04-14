@@ -1,0 +1,15 @@
+# Modelo e saídas do treinamento (arquivos grandes)
+outputs/
+*.bin
+*.safetensors
+*.pt
+
+# Ambiente virtual
+venv/
+.env
+__pycache__/
+*.py[cod]
+
+# Checkpoints e logs
+runs/
+wandb/
