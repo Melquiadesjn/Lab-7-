@@ -1,0 +1,44 @@
+# Configuração central do experimento
+# Altere aqui sem precisar editar o código
+
+model:
+  id: "meta-llama/Llama-2-7b-hf"
+  max_seq_length: 512
+
+quantization:
+  load_in_4bit: true
+  quant_type: "nf4"
+  compute_dtype: "float16"
+  double_quant: true
+
+lora:
+  r: 64
+  alpha: 16
+  dropout: 0.1
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+  bias: "none"
+
+training:
+  epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  optimizer: "paged_adamw_32bit"
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  max_grad_norm: 0.3
+  fp16: true
+  group_by_length: true
+  logging_steps: 10
+  save_strategy: "epoch"
+
+paths:
+  train_file: "data/train.jsonl"
+  test_file:  "data/test.jsonl"
+  output_dir: "outputs/llama2-qlora-data-science"
+  adapter_dir: "outputs/adapter"
+  merged_dir:  "outputs/merged"
